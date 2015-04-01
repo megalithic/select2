@@ -1515,24 +1515,47 @@ S2.define('select2/selection/multiple',[
 
     MultipleSelection.__super__.bind.apply(this, arguments);
 
+    var _isValidEvent = function(evt) {
+      return evt.type === 'click' ||
+        (evt.type === 'keydown' && evt.which === 13);
+    };
+
+    var _handleChoiceRemoval = function (evt) {
+      if(_isValidEvent(evt)) {
+        var $remove = $(this);
+        var $selection = $remove.parent();
+
+        var data = $selection.data('data');
+
+        self.trigger('unselect', {
+          originalEvent: evt,
+          data: data
+        });
+      }
+    };
+
+    // handle multiple selection item ADDITION by keypress
+    this.$selection.on('keydown', function (evt) {
+      if(evt.which === 13) {
+        self.trigger('toggle', {
+          originalEvent: evt
+        });
+        evt.stopPropagation();
+      }
+    });
+
+    // handle multiple selection item ADDITION by click
     this.$selection.on('click', function (evt) {
       self.trigger('toggle', {
         originalEvent: evt
       });
     });
 
+    // handle multiple selection item REMOVAL by click and keyup
     this.$selection.on('click', '.select2-selection__choice__remove',
-      function (evt) {
-      var $remove = $(this);
-      var $selection = $remove.parent();
-
-      var data = $selection.data('data');
-
-      self.trigger('unselect', {
-        originalEvent: evt,
-        data: data
-      });
-    });
+                        _handleChoiceRemoval);
+    this.$selection.on('keydown', '.select2-selection__choice__remove',
+                        _handleChoiceRemoval);
   };
 
   MultipleSelection.prototype.clear = function () {
@@ -1546,14 +1569,21 @@ S2.define('select2/selection/multiple',[
     return escapeMarkup(template(data));
   };
 
-  MultipleSelection.prototype.selectionContainer = function () {
+  MultipleSelection.prototype.selectionContainer = function (selection) {
     var $container = $(
       '<li class="select2-selection__choice">' +
-        '<span class="select2-selection__choice__remove" role="presentation">' +
+        '<span class="select2-selection__choice__remove "' +
+            'role="presentation" tabindex="0">' +
           '&times;' +
         '</span>' +
       '</li>'
     );
+
+    // provide aria attributes to handle choice removal button
+    $('.select2-selection__choice__remove', $container)
+      .attr({
+        'aria-label': 'Remove ' + selection.text
+      });
 
     return $container;
   };
@@ -1571,7 +1601,7 @@ S2.define('select2/selection/multiple',[
       var selection = data[d];
 
       var formatted = this.display(selection);
-      var $selection = this.selectionContainer();
+      var $selection = this.selectionContainer(selection);
 
       $selection.append(formatted);
       $selection.prop('title', selection.title || selection.text);
